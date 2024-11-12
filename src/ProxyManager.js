@@ -54,7 +54,7 @@ async function selectProxySource(inquirer) {
       },
     ]);
     return { type: 'file', source: filename };
-  } else if (source === 'NO PROXY') {
+  } else if (source === '无代理') {
     return { type: 'none' };
   }
 
