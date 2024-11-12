@@ -28,6 +28,23 @@ class Bot {
     }
   }
 
+  async connectWithRetry(proxy, userID, retryCount = 3) {
+    let attempts = 0;
+    while (attempts < retryCount) {
+      try {
+        await this.connectToProxy(proxy, userID);
+        console.log(`成功连接到代理 ${proxy} 的用户 ID: ${userID}`);
+        return;
+      } catch (error) {
+        console.error(`在代理 ${proxy} 上连接出错：${error.message}`);
+        attempts++;
+        console.log(`重试连接 (${attempts}/${retryCount})...`);
+        await this.delay(5000); // 延迟 5 秒后重试
+      }
+    }
+    console.error(`无法连接到代理 ${proxy}，已达到最大重试次数。`);
+  }
+
   async connectToProxy(proxy, userID) {
     const formattedProxy = proxy.startsWith('socks5://')
       ? proxy
@@ -83,34 +100,23 @@ class Bot {
             },
           };
           ws.send(JSON.stringify(authResponse));
-          console.log(
-            `发送认证响应: ${JSON.stringify(authResponse)}`.green
-          );
+          console.log(`发送认证响应: ${JSON.stringify(authResponse)}`.green);
         } else if (msg.action === 'PONG') {
           console.log(`收到 PONG: ${JSON.stringify(msg)}`.blue);
         }
       });
 
       ws.on('close', (code, reason) => {
-        console.log(
-          `WebSocket 已关闭，代码: ${code}，原因: ${reason}`.yellow
-        );
-        setTimeout(
-          () => this.connectToProxy(proxy, userID),
-          this.config.retryInterval
-        );
+        console.log(`WebSocket 已关闭，代码: ${code}，原因: ${reason}`.yellow);
+        setTimeout(() => this.connectToProxy(proxy, userID), this.config.retryInterval);
       });
 
       ws.on('error', (error) => {
-        console.error(
-          `WebSocket 在代理 ${proxy} 上出错：${error.message}`.red
-        );
+        console.error(`WebSocket 在代理 ${proxy} 上出错：${error.message}`.red);
         ws.terminate();
       });
     } catch (error) {
-      console.error(
-        `无法使用代理 ${proxy} 连接：${error.message}`.red
-      );
+      console.error(`无法使用代理 ${proxy} 连接：${error.message}`.red);
     }
   }
 
@@ -153,22 +159,15 @@ class Bot {
             },
           };
           ws.send(JSON.stringify(authResponse));
-          console.log(
-            `发送认证响应: ${JSON.stringify(authResponse)}`.green
-          );
+          console.log(`发送认证响应: ${JSON.stringify(authResponse)}`.green);
         } else if (msg.action === 'PONG') {
           console.log(`收到 PONG: ${JSON.stringify(msg)}`.blue);
         }
       });
 
       ws.on('close', (code, reason) => {
-        console.log(
-          `WebSocket 已关闭，代码: ${code}，原因: ${reason}`.yellow
-        );
-        setTimeout(
-          () => this.connectDirectly(userID),
-          this.config.retryInterval
-        );
+        console.log(`WebSocket 已关闭，代码: ${code}，原因: ${reason}`.yellow);
+        setTimeout(() => this.connectDirectly(userID), this.config.retryInterval);
       });
 
       ws.on('error', (error) => {
@@ -181,6 +180,7 @@ class Bot {
   }
 
   sendPing(ws, proxyIP) {
+    const PING_INTERVAL = 45000; // 心跳间隔设为 45 秒
     setInterval(() => {
       const pingMessage = {
         id: uuidv4(),
@@ -189,11 +189,12 @@ class Bot {
         data: {},
       };
       ws.send(JSON.stringify(pingMessage));
-      console.log(
-        `发送 ping - IP: ${proxyIP}，消息: ${JSON.stringify(pingMessage)}`
-          .cyan
-      );
-    }, 30000);
+      console.log(`发送 ping - IP: ${proxyIP}，消息: ${JSON.stringify(pingMessage)}`.cyan);
+    }, PING_INTERVAL);
+  }
+
+  delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
