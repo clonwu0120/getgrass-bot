@@ -5,6 +5,10 @@ const { v4: uuidv4 } = require('uuid');
 const { SocksProxyAgent } = require('socks-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 
+const MAX_RETRIES = 5; // 最大重试次数
+const RETRY_INTERVAL = 10000; // 重试间隔 10 秒
+const PING_INTERVAL = 45000; // 心跳间隔设为 45 秒
+
 class Bot {
   constructor(config) {
     this.config = config;
@@ -28,9 +32,9 @@ class Bot {
     }
   }
 
-  async connectWithRetry(proxy, userID, retryCount = 3) {
+  async connectWithRetry(proxy, userID) {
     let attempts = 0;
-    while (attempts < retryCount) {
+    while (attempts < MAX_RETRIES) {
       try {
         await this.connectToProxy(proxy, userID);
         console.log(`成功连接到代理 ${proxy} 的用户 ID: ${userID}`);
@@ -38,8 +42,8 @@ class Bot {
       } catch (error) {
         console.error(`在代理 ${proxy} 上连接出错：${error.message}`);
         attempts++;
-        console.log(`重试连接 (${attempts}/${retryCount})...`);
-        await this.delay(5000); // 延迟 5 秒后重试
+        console.log(`重试连接 (${attempts}/${MAX_RETRIES})...`);
+        await this.delay(RETRY_INTERVAL);
       }
     }
     console.error(`无法连接到代理 ${proxy}，已达到最大重试次数。`);
@@ -113,6 +117,9 @@ class Bot {
 
       ws.on('error', (error) => {
         console.error(`WebSocket 在代理 ${proxy} 上出错：${error.message}`.red);
+        if (error.message.includes('TLS') || error.message.includes('ECONNRESET')) {
+          console.log('请检查代理的网络稳定性，或尝试更换代理服务器。'.yellow);
+        }
         ws.terminate();
       });
     } catch (error) {
@@ -180,7 +187,6 @@ class Bot {
   }
 
   sendPing(ws, proxyIP) {
-    const PING_INTERVAL = 45000; // 心跳间隔设为 45 秒
     setInterval(() => {
       const pingMessage = {
         id: uuidv4(),
@@ -199,3 +205,4 @@ class Bot {
 }
 
 module.exports = Bot;
+
