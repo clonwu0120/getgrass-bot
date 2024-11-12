@@ -193,7 +193,7 @@ class Bot {
         `发送 ping - IP: ${proxyIP}，消息: ${JSON.stringify(pingMessage)}`
           .cyan
       );
-    }, 26000);
+    }, 30000);
   }
 }
 
